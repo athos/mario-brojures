@@ -1,10 +1,8 @@
 # mario-brojures
 
-FIXME: Write a one-line description of your library/project.
+_Mario Brojures_ is a port implementation of [MariOCaml](https://github.com/mahsu/MariOCaml) in ClojureScript.
 
-## Overview
-
-FIXME: Write a paragraph about the library/project and highlight its goals.
+The current status can be found [here](https://athos.github.io/mario-brojures).
 
 ## Setup
 
@@ -34,6 +32,6 @@ get live reloading, nor a REPL.
 
 ## License
 
-Copyright © 2014 FIXME
+Copyright © 2016 Shogo Ohta
 
 Distributed under the Eclipse Public License either version 1.0 or (at your option) any later version.
