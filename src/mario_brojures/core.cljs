@@ -27,3 +27,8 @@
   (let [{[sx sy] :src-offset, [sw sh] :frame-size} (:params sprite)]
     (.drawImage context (:img sprite) sx sy sw sh dx dy sw sh)))
 
+(defn clear-canvas [canvas]
+  (let [context (.getContext canvas "2d")
+        cwidth (.-width canvas)
+        cheight (.-height canvas)]
+    (.clearRect context 0 0 cwidth cheight)))
