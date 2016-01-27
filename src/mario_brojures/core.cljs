@@ -1,5 +1,5 @@
 (ns mario-brojures.core
-  (:require ))
+  (:refer-clojure :exclude [load]))
 
 (enable-console-print!)
 
@@ -32,3 +32,21 @@
         cwidth (.-width canvas)
         cheight (.-height canvas)]
     (.clearRect context 0 0 cwidth cheight)))
+
+(defn update-loop [canvas]
+  (let [context (.getContext canvas "2d")
+        sprite (-> (get-in sprite-params [:small-player :standing])
+                   make-from-params)]
+    (letfn [(update-helper [time]
+              (clear-canvas canvas)
+              (render context sprite (/ time 100) (/ time 100))
+              (.requestAnimationFrame js/window
+                (fn [t]
+                  (update-helper t))))]
+      (update-helper 0))))
+
+(defn load []
+  (let [canvas (.getElementById js/document "canvas")]
+    (update-loop canvas)))
+
+(set! (.-onload js/window) load)
