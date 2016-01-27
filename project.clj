@@ -21,7 +21,7 @@
                 :source-paths ["src"]
 
                 ;; If no code is to be run, set :figwheel true for continued automagical reloading
-                :figwheel {:on-jsload "mario-brojures.core/on-js-reload"}
+                :figwheel true
 
                 :compiler {:main mario-brojures.core
                            :asset-path "js/compiled/out"
