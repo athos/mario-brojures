@@ -39,17 +39,40 @@
          :up false
          :down false}))
 
+(defn translate-keys [pressed-keys]
+  (->> pressed-keys
+       (filter val)
+       (map key)))
+
+(defn update-player-keys [player direction]
+  (case direction
+    :left (update player :x dec)
+    :right (update player :x inc)
+    :up (update player :y dec)
+    :down (update player :y inc)))
+
+(defn update-player [player directions]
+  (let [player' (reduce update-player-keys player directions)]
+    ;; some additional update goes here
+    player'))
+
 (defn update-loop [canvas]
-  (let [context (.getContext canvas "2d")
+  (let [scale 1
+        context (.getContext canvas "2d")
+        cwidth (/ (.-width canvas) scale)
+        cheight (/ (.-height canvas) scale)
         sprite (-> (get-in sprite-params [:small-player :standing])
-                   make-from-params)]
-    (letfn [(update-helper [time]
+                   make-from-params)
+        state {:player {:x (/ cwidth 2) :y (/ cheight 2)}}]
+    (letfn [(update-helper [time state]
               (clear-canvas canvas)
-              (render context sprite (/ time 100) (/ time 100))
-              (.requestAnimationFrame js/window
-                (fn [t]
-                  (update-helper t))))]
-      (update-helper 0))))
+              (let [dirs (translate-keys @pressed-keys)
+                    player (update-player (:player state) dirs)]
+                (render context sprite (:x player) (:y player))
+                (.requestAnimationFrame js/window
+                  (fn [t]
+                    (update-helper t (assoc state :player player))))))]
+      (update-helper 0 state))))
 
 (defn keycode->key [code]
   (case code
