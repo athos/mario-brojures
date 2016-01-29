@@ -33,6 +33,12 @@
         cheight (.-height canvas)]
     (.clearRect context 0 0 cwidth cheight)))
 
+(def pressed-keys
+  (atom {:left false
+         :right false
+         :up false
+         :down false}))
+
 (defn update-loop [canvas]
   (let [context (.getContext canvas "2d")
         sprite (-> (get-in sprite-params [:small-player :standing])
@@ -45,8 +51,28 @@
                   (update-helper t))))]
       (update-helper 0))))
 
+(defn keycode->key [code]
+  (case code
+    (38 32 87) :up
+    (39 68) :right
+    (37 65) :left
+    (40 83) :down
+    nil))
+
+(defn keydown [e]
+  (when-let [key (keycode->key (.-keyCode e))]
+    (swap! pressed-keys assoc key true))
+  true)
+
+(defn keyup [e]
+  (when-let [key (keycode->key (.-keyCode e))]
+    (swap! pressed-keys assoc key false))
+  true)
+
 (defn load []
   (let [canvas (.getElementById js/document "canvas")]
+    (.addEventListener js/document "keydown" keydown)
+    (.addEventListener js/document "keyup" keyup)
     (update-loop canvas)))
 
 (set! (.-onload js/window) load)
