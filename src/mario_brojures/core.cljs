@@ -49,9 +49,18 @@
   (-> (get-in sprite-params [:small-player dir status])
       make-from-params))
 
+(defn make-background []
+  (-> (setup-sprite "bgd-1.png" [512 256] [0 0])
+      make-from-params))
+
 (defn render [context sprite dx dy]
   (let [{[sx sy] :src-offset, [sw sh] :frame-size} (:params sprite)]
     (.drawImage context (:img sprite) sx sy sw sh dx dy sw sh)))
+
+(defn draw-background [context background offset-x]
+  (let [background-size (get-in background [:params :frame-size])]
+    (render context background (- offset-x) 0)
+    (render context background (- (first background-size) offset-x) 0)))
 
 (defn clear-canvas [canvas]
   (let [context (.getContext canvas "2d")
@@ -96,6 +105,8 @@
         context (.getContext canvas "2d")
         cwidth (/ (.-width canvas) scale)
         cheight (/ (.-height canvas) scale)
+        bgd (make-background)
+        bgd-width (first (get-in bgd [:params :frame-size]))
         state {:player {:x (/ cwidth 2) :y (/ cheight 2)
                         :status :standing
                         :dir :right
@@ -103,7 +114,9 @@
     (letfn [(update-helper [time state]
               (clear-canvas canvas)
               (let [dirs (translate-keys @pressed-keys)
-                    player (update-player (:player state) dirs)]
+                    player (update-player (:player state) dirs)
+                    offset-x (mod (js/Math.floor (:x player)) bgd-width)]
+                (draw-background context bgd offset-x)
                 (render context (:sprite player) (:x player) (:y player))
                 (.requestAnimationFrame js/window
                   (fn [t]
