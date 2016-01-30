@@ -8,13 +8,35 @@
 (def level-width 2400)
 (def level-height 256)
 
+(defn setup-sprite [img-src frame-size src-offset
+                    & {:keys [bbox-offset bbox-size]
+                       :or {bbox-offset [0 0], bbox-size [0 0]}}]
+  {:img-src img-src
+   :frame-size frame-size
+   :src-offset src-offset
+   :bbox-offset bbox-offset
+   :bbox-size bbox-size})
+
 (def sprite-params
   {:small-player
-   {:standing {:img-src "mario-small.png"
-               :src-offset [0 0]
-               :frame-size [16 16]
-               :bbox-offset [3 1]
-               :bbox-size [11 15]}}})
+   {:left
+    {:standing  (setup-sprite "mario-small.png" [16 16] [0 0]
+                              :bbox-offset [3 1] :bbox-size [11 15])
+     :jumping   (setup-sprite "mario-small.png" [16 16] [16 16]
+                              :bbox-offset [2 1] :bbox-size [13 15])
+     :running   (setup-sprite "mario-small.png" [16 16] [16 0]
+                              :bbox-offset [2 1] :bbox-size [12 15])
+     :crouching (setup-sprite "mario-small.png" [16 16] [0 64]
+                              :bbox-offset [1 5] :bbox-size [14 10])}
+    :right
+    {:standing  (setup-sprite "mario-small.png" [16 16] [0 32]
+                              :bbox-offset [1 1] :bbox-size [11 15])
+     :jumping   (setup-sprite "mario-small.png" [16 16] [16 48]
+                              :bbox-offset [2 1] :bbox-size [13 15])
+     :running   (setup-sprite "mario-small.png" [16 16] [16 32]
+                              :bbox-offset [2 1] :bbox-size [12 15])
+     :crouching (setup-sprite "mario-small.png" [16 16] [0 64]
+                              :bbox-offset [1 5] :bbox-size [14 10])}}})
 
 (defn make-from-params [params]
   (let [img (.createElement js/document "img")]
@@ -22,6 +44,10 @@
     {:params params
      :img img
      }))
+
+(defn make-small-player [status dir]
+  (-> (get-in sprite-params [:small-player dir status])
+      make-from-params))
 
 (defn render [context sprite dx dy]
   (let [{[sx sy] :src-offset, [sw sh] :frame-size} (:params sprite)]
@@ -44,31 +70,41 @@
        (filter val)
        (map key)))
 
-(defn update-player-keys [player direction]
-  (case direction
-    :left (update player :x dec)
-    :right (update player :x inc)
-    :up (update player :y dec)
-    :down (update player :y inc)))
+(defn update-player-keys [player control]
+  (case control
+    :left (-> player
+              (update :x dec)
+              (assoc :dir :left :status :running))
+    :right (-> player
+               (update :x inc)
+               (assoc :dir :right :status :running))
+    :up (-> player
+            (update :y dec)
+            (assoc :status :jumping))
+    :down (-> player
+              (update :y inc)
+              (assoc :status :crouching))))
 
-(defn update-player [player directions]
-  (let [player' (reduce update-player-keys player directions)]
-    ;; some additional update goes here
-    player'))
+(defn update-player [player controls]
+  (let [pl (reduce update-player-keys
+                   (assoc player :status :standing)
+                   controls)]
+    (assoc pl :sprite (make-small-player (:status pl) (:dir pl)))))
 
 (defn update-loop [canvas]
   (let [scale 1
         context (.getContext canvas "2d")
         cwidth (/ (.-width canvas) scale)
         cheight (/ (.-height canvas) scale)
-        sprite (-> (get-in sprite-params [:small-player :standing])
-                   make-from-params)
-        state {:player {:x (/ cwidth 2) :y (/ cheight 2)}}]
+        state {:player {:x (/ cwidth 2) :y (/ cheight 2)
+                        :status :standing
+                        :dir :right
+                        :sprite (make-small-player :standing :right)}}]
     (letfn [(update-helper [time state]
               (clear-canvas canvas)
               (let [dirs (translate-keys @pressed-keys)
                     player (update-player (:player state) dirs)]
-                (render context sprite (:x player) (:y player))
+                (render context (:sprite player) (:x player) (:y player))
                 (.requestAnimationFrame js/window
                   (fn [t]
                     (update-helper t (assoc state :player player))))))]
