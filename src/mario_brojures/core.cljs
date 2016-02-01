@@ -1,5 +1,6 @@
 (ns mario-brojures.core
-  (:refer-clojure :exclude [load]))
+  (:refer-clojure :exclude [load])
+  (:require [mario-brojures.sprite :as sprite]))
 
 (enable-console-print!)
 
@@ -7,81 +8,6 @@
 (def imgs-to-load 4)
 (def level-width 2400)
 (def level-height 256)
-
-(defn setup-sprite [img-src frame-size src-offset
-                    & {:keys [bbox-offset bbox-size]
-                       :or {bbox-offset [0 0], bbox-size [0 0]}}]
-  (with-meta
-    {:img-src img-src
-     :frame-size frame-size
-     :src-offset src-offset
-     :bbox-offset bbox-offset
-     :bbox-size bbox-size}
-    {:tag :sprite-params}))
-
-(defn sprite-params? [x]
-  (= (:tag (meta x)) :sprite-params))
-
-(def player-sprite-params
-  {:small-player
-   {:left
-    {:standing  (setup-sprite "mario-small.png" [16 16] [0 0]
-                              :bbox-offset [3 1] :bbox-size [11 15])
-     :jumping   (setup-sprite "mario-small.png" [16 16] [16 16]
-                              :bbox-offset [2 1] :bbox-size [13 15])
-     :running   (setup-sprite "mario-small.png" [16 16] [16 0]
-                              :bbox-offset [2 1] :bbox-size [12 15])
-     :crouching (setup-sprite "mario-small.png" [16 16] [0 64]
-                              :bbox-offset [1 5] :bbox-size [14 10])}
-    :right
-    {:standing  (setup-sprite "mario-small.png" [16 16] [0 32]
-                              :bbox-offset [1 1] :bbox-size [11 15])
-     :jumping   (setup-sprite "mario-small.png" [16 16] [16 48]
-                              :bbox-offset [2 1] :bbox-size [13 15])
-     :running   (setup-sprite "mario-small.png" [16 16] [16 32]
-                              :bbox-offset [2 1] :bbox-size [12 15])
-     :crouching (setup-sprite "mario-small.png" [16 16] [0 64]
-                              :bbox-offset [1 5] :bbox-size [14 10])}}})
-
-(def enemy-sprite-params
-  {:goomba (setup-sprite "enemies.png" [16 16] [0 128]
-                         :bbox-offset [1 1] :bbox-size [14 14])
-   :gkoopa
-   {:left  (setup-sprite "enemies.png" [16 27] [0 69]
-                         :bbox-offset [4 10] :bbox-size [11 16])
-    :right (setup-sprite "enemies.png" [16 27] [32 69]
-                         :bbox-offset [1 10] :bbox-size [11 16])}
-   :rkoopa
-   {:left  (setup-sprite "enemies.png" [16 27] [0 5]
-                         :bbox-offset [4 10] :bbox-size [11 16])
-    :right (setup-sprite "enemies.png" [16 27] [32 5]
-                         :bbox-offset [1 10] :bbox-size [11 16])}
-   :gkoopashell (setup-sprite "enemies.png" [16 16] [0 96]
-                              :bbox-offset [2 2] :bbox-size [12 13])
-   :rkoopashell (setup-sprite "enemies.png" [16 16] [0 32]
-                              :bbox-offset [2 2] :bbox-size [12 13])})
-
-(defn make-from-params [params]
-  (let [img (.createElement js/document "img")]
-    (set! (.-src img) (str "sprites/" (:img-src params)))
-    {:params params
-     :img img
-     }))
-
-(defn make-small-player [status dir]
-  (-> (get-in player-sprite-params [:small-player dir status])
-      make-from-params))
-
-(defn make-enemy [type & [dir]]
-  (let [maybe-params (get enemy-sprite-params type)
-        params (if (sprite-params? maybe-params)
-                 maybe-params    ; dir can be ignored for this type of enemy
-                 (get maybe-params dir))]
-    (make-from-params params)))
-
-(defn make-background []
-  (-> (setup-sprite "bgd-1.png" [512 256] [0 0])
-      make-from-params))
 
 (defn render [context sprite dx dy]
   (let [{[sx sy] :src-offset, [sw sh] :frame-size} (:params sprite)]
@@ -128,28 +54,28 @@
   (let [pl (reduce update-player-keys
                    (assoc player :status :standing)
                    controls)]
-    (assoc pl :sprite (make-small-player (:status pl) (:dir pl)))))
+    (assoc pl :sprite (sprite/make-small-player (:status pl) (:dir pl)))))
 
 (defn update-loop [canvas]
   (let [scale 1
         context (.getContext canvas "2d")
         cwidth (/ (.-width canvas) scale)
         cheight (/ (.-height canvas) scale)
-        bgd (make-background)
+        bgd (sprite/make-background)
         bgd-width (first (get-in bgd [:params :frame-size]))
         state {:player {:x (/ cwidth 2) :y (/ cheight 2)
                         :status :standing
                         :dir :right
-                        :sprite (make-small-player :standing :right)}}]
+                        :sprite (sprite/make-small-player :standing :right)}}]
     (letfn [(update-helper [time state]
               (clear-canvas canvas)
               (let [dirs (translate-keys @pressed-keys)
                     player (update-player (:player state) dirs)
                     offset-x (mod (js/Math.floor (:x player)) bgd-width)]
                 (draw-background context bgd offset-x)
-                (doseq [[i type] (map-indexed list (keys enemy-sprite-params))]
+                (doseq [[i type] (map-indexed list (keys sprite/enemy-sprite-params))]
                   (render context
-                          (make-enemy type :right)
+                          (sprite/make-enemy type :right)
                           50 (+ 50 (* 30 i))))
                 (render context (:sprite player) (:x player) (:y player))
                 (.requestAnimationFrame js/window
