@@ -66,17 +66,19 @@
         state {:player {:x (/ cwidth 2) :y (/ cheight 2)
                         :status :standing
                         :dir :right
-                        :sprite (sprite/make-small-player :standing :right)}}]
+                        :sprite (sprite/make-small-player :standing :right)}
+               :objs (for [[i type] (->> (keys sprite/enemy-sprite-params)
+                                         (map-indexed list))]
+                       {:x 50 :y (+ 50 (* 30 i)) :type type :dir :right
+                        :sprite (sprite/make-enemy type :right)})}]
     (letfn [(update-helper [time state]
               (clear-canvas canvas)
               (let [dirs (translate-keys @pressed-keys)
                     player (update-player (:player state) dirs)
                     offset-x (mod (js/Math.floor (:x player)) bgd-width)]
                 (draw-background context bgd offset-x)
-                (doseq [[i type] (map-indexed list (keys sprite/enemy-sprite-params))]
-                  (render context
-                          (sprite/make-enemy type :right)
-                          50 (+ 50 (* 30 i))))
+                (doseq [obj (:objs state)]
+                  (render context (:sprite obj) (:x obj) (:y obj)))
                 (render context (:sprite player) (:x player) (:y player))
                 (.requestAnimationFrame js/window
                   (fn [t]
