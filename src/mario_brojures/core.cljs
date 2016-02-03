@@ -50,6 +50,25 @@
               (update :y inc)
               (assoc :status :crouching))))
 
+(def abs js/Math.abs)
+
+(defn check-collision [c1 c2]
+  (let [vx (- (:x c1) (:x c2))
+        vy (- (:y c1) (:y c2))
+        hwidths 20
+        hheights 20]
+    (when (and (< (abs vx) hwidths)
+               (< (abs vy) hheights))
+      (let [ox (- hwidths (abs vx))
+            oy (- hheights (abs vy))]
+        (if (>= ox oy)
+          (if (> vy 0)
+            [:north oy]
+            [:south oy])
+          (if (> vx 0)
+            [:west ox]
+            [:east ox]))))))
+
 (defn update-player [player controls]
   (let [pl (reduce update-player-keys
                    (assoc player :status :standing)
@@ -66,17 +85,21 @@
         state {:player {:x (/ cwidth 2) :y (/ cheight 2)
                         :status :standing
                         :dir :right
-                        :sprite (sprite/make-small-player :standing :right)}}]
+                        :sprite (sprite/make-small-player :standing :right)}
+               :objs (for [[i type] (->> (keys sprite/enemy-sprite-params)
+                                         (map-indexed list))]
+                       {:x 50 :y (+ 50 (* 30 i)) :type type :dir :right
+                        :sprite (sprite/make-enemy type :right)})}]
     (letfn [(update-helper [time state]
               (clear-canvas canvas)
               (let [dirs (translate-keys @pressed-keys)
                     player (update-player (:player state) dirs)
                     offset-x (mod (js/Math.floor (:x player)) bgd-width)]
                 (draw-background context bgd offset-x)
-                (doseq [[i type] (map-indexed list (keys sprite/enemy-sprite-params))]
-                  (render context
-                          (sprite/make-enemy type :right)
-                          50 (+ 50 (* 30 i))))
+                (doseq [obj (:objs state)]
+                  (when (check-collision player obj)
+                    (println "Collided with " (:type obj)))
+                  (render context (:sprite obj) (:x obj) (:y obj)))
                 (render context (:sprite player) (:x player) (:y player))
                 (.requestAnimationFrame js/window
                   (fn [t]
