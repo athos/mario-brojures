@@ -50,6 +50,25 @@
               (update :y inc)
               (assoc :status :crouching))))
 
+(def abs js/Math.abs)
+
+(defn check-collision [c1 c2]
+  (let [vx (- (:x c1) (:x c2))
+        vy (- (:y c1) (:y c2))
+        hwidths 20
+        hheights 20]
+    (when (and (< (abs vx) hwidths)
+               (< (abs vy) hheights))
+      (let [ox (- hwidths (abs vx))
+            oy (- hheights (abs vy))]
+        (if (>= ox oy)
+          (if (> vy 0)
+            [:north oy]
+            [:south oy])
+          (if (> vx 0)
+            [:west ox]
+            [:east ox]))))))
+
 (defn update-player [player controls]
   (let [pl (reduce update-player-keys
                    (assoc player :status :standing)
@@ -78,6 +97,8 @@
                     offset-x (mod (js/Math.floor (:x player)) bgd-width)]
                 (draw-background context bgd offset-x)
                 (doseq [obj (:objs state)]
+                  (when (check-collision player obj)
+                    (println "Collided with " (:type obj)))
                   (render context (:sprite obj) (:x obj) (:y obj)))
                 (render context (:sprite player) (:x player) (:y player))
                 (.requestAnimationFrame js/window
