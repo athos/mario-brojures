@@ -69,6 +69,29 @@
             [:west ox]
             [:east ox]))))))
 
+(defn adjust-collid [collid dir delta]
+  (let [[key delta'] (case dir
+                       :north [:y delta]
+                       :south [:y (- delta)]
+                       :west [:x delta]
+                       :east [:x (- delta)])]
+    (assoc collid key delta')))
+
+(defn process-collision [dir c1 c2])
+
+(defn check-collisions [c1 collids]
+  (reduce (fn [acc c2]
+            (let [[o1 o2] (when (not= (:id c1) (:id c2))
+                            (when-let [[dir delta] (check-collision c1 c2)]
+                              (let [c1' (adjust-collid c1 dir delta)]
+                                (process-collision c1' c2))))
+                  conj-unless-nil #(if %2 (conj %1 %2) %1)]
+              (-> acc
+                  (cons-unless-nil o1)
+                  (cons-unless-nil o2))))
+          []
+          collids))
+
 (defn update-player [player controls]
   (let [pl (reduce update-player-keys
                    (assoc player :status :standing)
@@ -82,13 +105,15 @@
         cheight (/ (.-height canvas) scale)
         bgd (sprite/make-background)
         bgd-width (first (get-in bgd [:params :frame-size]))
-        state {:player {:x (/ cwidth 2) :y (/ cheight 2)
+        state {:player {:id 0
+                        :x (/ cwidth 2) :y (/ cheight 2)
                         :status :standing
                         :dir :right
                         :sprite (sprite/make-small-player :standing :right)}
                :objs (for [[i type] (->> (keys sprite/enemy-sprite-params)
                                          (map-indexed list))]
-                       {:x 50 :y (+ 50 (* 30 i)) :type type :dir :right
+                       {:id (inc i)
+                        :x 50 :y (+ 50 (* 30 i)) :type type :dir :right
                         :sprite (sprite/make-enemy type :right)})}]
     (letfn [(update-helper [time state]
               (clear-canvas canvas)
