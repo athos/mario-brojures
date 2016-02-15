@@ -93,7 +93,7 @@
             (let [[o1 o2] (when (not= (:id c1) (:id c2))
                             (when-let [[dir delta] (check-collision c1 c2)]
                               (let [c1' (adjust-collid c1 dir delta)]
-                                (process-collision c1' c2))))]
+                                (process-collision dir c1' c2))))]
               (cond-> acc
                 o1 (conj o1)
                 o2 (conj o2))))
