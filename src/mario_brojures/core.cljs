@@ -100,6 +100,9 @@
           []
           collids))
 
+(defn update-collid [collid all-collids]
+  )
+
 (defn update-player [player controls]
   (let [pl (reduce update-player-keys
                    (assoc player :status :standing)
