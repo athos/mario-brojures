@@ -9,20 +9,29 @@
 (def level-width 2400)
 (def level-height 256)
 
-(defn render [context sprite dx dy]
-  (let [{[sx sy] :src-offset, [sw sh] :frame-size} (:params sprite)]
-    (.drawImage context (:img sprite) sx sy sw sh dx dy sw sh)))
-
-(defn draw-background [context background offset-x]
-  (let [background-size (get-in background [:params :frame-size])]
-    (render context background (- offset-x) 0)
-    (render context background (- (first background-size) offset-x) 0)))
-
 (defn clear-canvas [canvas]
   (let [context (.getContext canvas "2d")
         cwidth (.-width canvas)
         cheight (.-height canvas)]
     (.clearRect context 0 0 cwidth cheight)))
+
+(defn render* [context sprite dx dy]
+  (let [{[sx sy] :src-offset, [sw sh] :frame-size} (:params sprite)]
+    (.drawImage context (:img sprite) sx sy sw sh dx dy sw sh)))
+
+(defn render-background [context background offset-x]
+  (let [background-size (get-in background [:params :frame-size])]
+    (render* context background (- offset-x) 0)
+    (render* context background (- (first background-size) offset-x) 0)))
+
+(defn render [state]
+  (let [{:keys [context player objs bgd]} state
+        bgd-width (first (get-in bgd [:params :frame-size]))
+        offset-x (mod (js/Math.floor (:x player)) bgd-width)]
+    (render-background context bgd offset-x)
+    (doseq [obj objs]
+      (render* context (:sprite obj) (:x obj) (:y obj)))
+    (render* context (:sprite player) (:x player) (:y player))))
 
 (def pressed-keys
   (atom {:left false
@@ -69,42 +78,68 @@
             [:west ox]
             [:east ox]))))))
 
+(defn adjust-collid [collid dir delta]
+  (let [[key delta'] (case dir
+                       :north [:y delta]
+                       :south [:y (- delta)]
+                       :west [:x delta]
+                       :east [:x (- delta)])]
+    (assoc collid key delta')))
+
+(defn process-collision [dir c1 c2])
+
+(defn check-collisions [c1 collids]
+  (reduce (fn [acc c2]
+            (let [[o1 o2] (when (not= (:id c1) (:id c2))
+                            (when-let [[dir delta] (check-collision c1 c2)]
+                              (let [c1' (adjust-collid c1 dir delta)]
+                                (process-collision dir c1' c2))))]
+              (cond-> acc
+                o1 (conj o1)
+                o2 (conj o2))))
+          []
+          collids))
+
+(defn update-collid [collid all-collids]
+  )
+
 (defn update-player [player controls]
   (let [pl (reduce update-player-keys
                    (assoc player :status :standing)
                    controls)]
     (assoc pl :sprite (sprite/make-small-player (:status pl) (:dir pl)))))
 
-(defn update-loop [canvas]
+(defn update-state [state]
+  (let [dirs (translate-keys @pressed-keys)]
+    (update state :player update-player dirs)))
+
+(defn init-state [canvas]
   (let [scale 1
-        context (.getContext canvas "2d")
         cwidth (/ (.-width canvas) scale)
-        cheight (/ (.-height canvas) scale)
-        bgd (sprite/make-background)
-        bgd-width (first (get-in bgd [:params :frame-size]))
-        state {:player {:x (/ cwidth 2) :y (/ cheight 2)
-                        :status :standing
-                        :dir :right
-                        :sprite (sprite/make-small-player :standing :right)}
-               :objs (for [[i type] (->> (keys sprite/enemy-sprite-params)
-                                         (map-indexed list))]
-                       {:x 50 :y (+ 50 (* 30 i)) :type type :dir :right
-                        :sprite (sprite/make-enemy type :right)})}]
-    (letfn [(update-helper [time state]
-              (clear-canvas canvas)
-              (let [dirs (translate-keys @pressed-keys)
-                    player (update-player (:player state) dirs)
-                    offset-x (mod (js/Math.floor (:x player)) bgd-width)]
-                (draw-background context bgd offset-x)
-                (doseq [obj (:objs state)]
-                  (when (check-collision player obj)
-                    (println "Collided with " (:type obj)))
-                  (render context (:sprite obj) (:x obj) (:y obj)))
-                (render context (:sprite player) (:x player) (:y player))
-                (.requestAnimationFrame js/window
-                  (fn [t]
-                    (update-helper t (assoc state :player player))))))]
-      (update-helper 0 state))))
+        cheight (/ (.-height canvas) scale)]
+    {:context (.getContext canvas "2d")
+     :player {:id 0
+              :x (/ cwidth 2) :y (/ cheight 2)
+              :status :standing
+              :dir :right
+              :sprite (sprite/make-small-player :standing :right)}
+     :objs (for [[i type] (->> (keys sprite/enemy-sprite-params)
+                               (map-indexed list))]
+             {:id (inc i)
+              :x 50 :y (+ 50 (* 30 i)) :type type :dir :right
+              :sprite (sprite/make-enemy type :right)})
+     :bgd (sprite/make-background)}))
+
+(defn main-loop [canvas state]
+  (letfn [(tick [time state]
+            (clear-canvas canvas)
+            (let [state' (update-state state)]
+              (doseq [obj (:objs state')]
+                (when (check-collision (:player state) obj)
+                  (println "Collided with " (:type obj))))
+              (render state')
+              (.requestAnimationFrame js/window #(tick % state'))))]
+    (tick 0 state)))
 
 (defn keycode->key [code]
   (case code
@@ -125,9 +160,10 @@
   true)
 
 (defn load []
-  (let [canvas (.getElementById js/document "canvas")]
+  (let [canvas (.getElementById js/document "canvas")
+        state (init-state canvas)]
     (.addEventListener js/document "keydown" keydown)
     (.addEventListener js/document "keyup" keyup)
-    (update-loop canvas)))
+    (main-loop canvas state)))
 
 (set! (.-onload js/window) load)
